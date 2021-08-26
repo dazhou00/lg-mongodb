@@ -54,7 +54,6 @@ db.inventory.insertMany([
 - `db.collection.findOne()`
 
 ```powershell
-
 db.user.find( # collection
   {age: {$gt: 18}}, # query criteria
   {name: 1, addres: 1} # projection
@@ -185,7 +184,9 @@ SELECT * FROM inventory WHERE status in ('A', 'D')
 
 #### 匹配嵌套文档
 
-要在作为嵌入/嵌套文档的字段上指定相等条件，请使用查询过滤器文档 `{<field>: <value>}`，其中 `<value>` 是要匹配的文档。
+- 要在作为嵌入/嵌套文档的字段上指定相等条件，请使用查询过滤器文档 `{<field>: <value>}`，其中 `<value>` 是要匹配的文档。
+- 整嵌入式文档上的相等匹配要求与指定的 `<value>` 文档完全匹配，包括字段的顺序
+
 ```powershell
 # 等于文档 {h: 14, w: 21, uom: "cm"} 的所有文档
 db.inventory.find({
