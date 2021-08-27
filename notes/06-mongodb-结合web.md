@@ -1,11 +1,9 @@
 # MongoDB 数据库结合 Web 服务
 
-
 ## 接口设计
 
 - [理解 RESTful 架构](http://www.ruanyifeng.com/blog/2011/09/restful.html)
 - [RESTful API 设计指南](http://www.ruanyifeng.com/blog/2014/05/restful_api.html)
-
 
 ### 创建文章
 
@@ -16,6 +14,7 @@
 - 数据格式 application/json
 
 请求示例：
+
 ```js
 {
   article:{
@@ -28,8 +27,10 @@
 ```
 
 返回数据示例:
+
 - 状态码 201
 - 响应数据
+
 ```js
 {
   article:{
@@ -49,13 +50,14 @@
 - 请求方法 GET
 - 请求路径 /articles
 - 请求参数 (Query)
-  - _page 页码
-  - _size 每页条数
-
+  - \_page 页码
+  - \_size 每页条数
 
 响应数据示例：
+
 - 状态码 200
 - 响应数据
+
 ```js
 {
   articles:[
@@ -87,10 +89,11 @@
 - 请求方法 GET
 - 请求路径 /articles/:id
 
-
 响应数据示例
+
 - 状态码 200
 - 响应数据
+
 ```js
 {
   article:{
@@ -113,17 +116,20 @@
   - title、description、body、tagList
 
 请求示例：
+
 ```js
 {
   article: {
-    title: '更新标题'
+    title: "更新标题";
   }
 }
 ```
 
 响应数据示例：
+
 - 状态码 201
 - 响应数据
+
 ```js
 {
   article:{
@@ -139,18 +145,19 @@
 ```
 
 ### 删除文章
+
 - 请求方法 DELETE
 - 请求路径 /articles/:id
 
-
 响应数据示例：
+
 - 状态码 204
 - 响应数据
+
 ```js
-{}
+{
+}
 ```
-
-
 
 ## 项目准备
 
@@ -210,7 +217,6 @@ app.patch("/articles/:id", (req, res) => {
 app.delete("/articles/:id", (req, res) => {
   res.send("delete /articles/:id");
 });
-
 ```
 
 ### 处理 body 请求数据
@@ -222,11 +228,9 @@ app.delete("/articles/:id", (req, res) => {
 app.use(express.json());
 ```
 
-
 ## 创建文章
 
 ```js
-
 const { MongoClient } = require("mongodb");
 
 const uri = "mongodb://localhost:27017";
@@ -269,4 +273,114 @@ app.post("/articles", async (req, res, next) => {
 });
 ```
 
+```js
+// 它之前的所有路由中调用 next(err) 就会进入这里
+// 注意： 4个参数，缺一不可
+app.use((err, req, res, next) => {
+  res.status(500).json({
+    error: err.message,
+  });
+});
+```
 
+### 获取文章列表
+
+```js
+// 获取文章列表
+app.get("/articles", async (req, res, next) => {
+  try {
+    let { _page = 1, _size = 10 } = req.query;
+    _page = Number.parseInt(_page);
+    _size = Number.parseInt(_size);
+
+    await client.connect();
+    const collection = client.db("test").collection("articles");
+    const ret = await collection
+      .find()
+      .skip((_page - 1) * _size) // 跳过多少条
+      .limit(_size); // 取多少条
+
+    const articles = await ret.toArray();
+    const articlesCount = await collection.countDocuments();
+    res.status(200).json({
+      articles,
+      articlesCount,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+```
+
+### 获取单个文章
+
+```js
+// 获取单个文章
+app.get("/articles/:id", async (req, res) => {
+  try {
+    let { id } = req.params;
+
+    await client.connect();
+    const collection = client.db("test").collection("articles");
+    const ret = await collection.findOne({ _id: ObjectID(id) });
+
+    res.status(200).json({
+      article: ret,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+```
+
+### 更新文章
+
+```js
+// 更新文章
+app.patch("/articles/:id", async (req, res) => {
+  try {
+    let { id } = req.params;
+    let { article } = req.body;
+
+    await client.connect();
+    const collection = client.db("test").collection("articles");
+
+    article.updateAt = new Date();
+    await collection.updateOne(
+      { _id: ObjectID(id) },
+      {
+        $set: article,
+      }
+    );
+
+    const ret = await collection.findOne({ _id: ObjectID(id) });
+
+    res.status(201).json({
+      article: ret,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+```
+
+### 删除文章
+
+```js
+// 删除文章
+app.delete("/articles/:id", async (req, res) => {
+  try {
+    let { id } = req.params;
+
+    await client.connect();
+    const collection = client.db("test").collection("articles");
+    await collection.deleteOne({ _id: ObjectID(id) });
+
+    res.status(204).json({
+      article: {},
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+```

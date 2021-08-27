@@ -1,5 +1,5 @@
 const express = require("express");
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectID } = require("mongodb");
 
 const uri = "mongodb://localhost:27017";
 const client = new MongoClient(uri, { useUnifiedTopology: true });
@@ -60,7 +60,7 @@ app.get("/articles", async (req, res, next) => {
     const collection = client.db("test").collection("articles");
     const ret = await collection
       .find()
-      .skip((_page - 1) * size) // 跳过多少条
+      .skip((_page - 1) * _size) // 跳过多少条
       .limit(_size); // 取多少条
 
     const articles = await ret.toArray();
@@ -75,18 +75,72 @@ app.get("/articles", async (req, res, next) => {
 });
 
 // 获取单个文章
-app.get("/articles/:id", (req, res) => {
-  res.send("get /articles/:id");
+app.get("/articles/:id", async (req, res) => {
+  try {
+    let { id } = req.params;
+
+    await client.connect();
+    const collection = client.db("test").collection("articles");
+    const ret = await collection.findOne({ _id: ObjectID(id) });
+
+    res.status(200).json({
+      article: ret,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // 更新文章
-app.patch("/articles/:id", (req, res) => {
-  res.send("patch /articles/:id");
+app.patch("/articles/:id", async (req, res) => {
+  try {
+    let { id } = req.params;
+    let { article } = req.body;
+
+    await client.connect();
+    const collection = client.db("test").collection("articles");
+
+    article.updateAt = new Date();
+    await collection.updateOne(
+      { _id: ObjectID(id) },
+      {
+        $set: article,
+      }
+    );
+
+    const ret = await collection.findOne({ _id: ObjectID(id) });
+
+    res.status(201).json({
+      article: ret,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // 删除文章
-app.delete("/articles/:id", (req, res) => {
-  res.send("delete /articles/:id");
+app.delete("/articles/:id", async (req, res) => {
+  try {
+    let { id } = req.params;
+
+    await client.connect();
+    const collection = client.db("test").collection("articles");
+    await collection.deleteOne({ _id: ObjectID(id) });
+
+    res.status(204).json({
+      article: {},
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 它之前的所有路由中调用 next(err) 就会进入这里
+// 注意： 4个参数，缺一不可
+app.use((err, req, res, next) => {
+  res.status(500).json({
+    error: err.message,
+  });
 });
 
 app.listen(3000, () => {
